@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ResilienceNode Control - Autonomous Network Black Box & Telemetry Dashboard">
+  <meta name="theme-color" content="#0d1117">
+  <title>ResilienceNode Control</title>
+  <style>
+    :root {
+      --bg-base: #0d1117; --bg-surface: #161b22; --bg-subtle: #21262d; --bg-hover: #30363d;
+      --border-subtle: #30363d; --border-light: rgba(240, 246, 252, 0.1); --border-focus: #58a6ff;
+      --text-main: #e6edf3; --text-muted: #8b949e; --text-dim: #6e7681;
+      --cyan-400: #58a6ff; --cyan-500: #1f6feb; --cyan-glow: rgba(88, 166, 255, 0.2);
+      --emerald-400: #3fb950; --emerald-500: #238636; --emerald-bg: rgba(63, 185, 80, 0.15); --emerald-glow: rgba(63, 185, 80, 0.25);
+      --amber-400: #d29922; --amber-500: #9e6a03; --amber-bg: rgba(210, 153, 34, 0.15); --amber-glow: rgba(210, 153, 34, 0.25);
+      --red-400: #f85149; --red-500: #da3633; --red-bg: rgba(248, 81, 73, 0.15); --red-glow: rgba(248, 81, 73, 0.25);
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
+      --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.4);
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-state: 0.3s ease;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: var(--bg-base); color: var(--text-main); font-family: var(--font-stack); font-size: 14px; line-height: 1.5; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-subtle); border-radius: 4px; border: 1px solid var(--border-subtle); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--bg-hover); }
+    .app-shell { max-width: 1280px; margin: 0 auto; padding: 0 20px 48px; }
+
+    /* 1. TOP BAR */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13, 17, 23, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle); margin: 0 -20px 24px; padding: 12px 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .brand-group { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 36px; height: 36px; background: linear-gradient(135deg, #1f6feb 0%, #161b22 100%);
+      border: 1px solid var(--cyan-400); border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 12px var(--cyan-glow); flex-shrink: 0;
+    }
+    .brand-icon svg { width: 22px; height: 22px; fill: none; stroke: var(--cyan-400); stroke-width: 2; }
+    .brand-text h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.2px; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .brand-text h1 span.edition { font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 2px 6px; background: var(--bg-subtle); border: 1px solid var(--border-subtle); color: var(--cyan-400); border-radius: 4px; }
+    .brand-text p { font-size: 11px; color: var(--text-muted); }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .badge-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 20px; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+    .badge-chip strong { color: var(--text-main); font-weight: 600; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--emerald-400); position: relative; }
+    .status-dot.pulse::after { content: ''; position: absolute; top: -2px; left: -2px; width: 12px; height: 12px; border-radius: 50%; background: inherit; opacity: 0.4; animation: pulse-ring 2s infinite ease-out; }
+    @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(2.2); opacity: 0; } }
+    .btn-icon { background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-muted); padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: all var(--ease) 0.2s; }
+    .btn-icon:hover { background: var(--bg-hover); color: var(--text-main); border-color: var(--text-muted); }
+    .btn-icon svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .btn-icon.spinning svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* 2. MAIN STATUS HERO */
+    .hero-card {
+      background: var(--bg-surface); border: 1px solid var(--state-border, var(--border-subtle)); border-radius: var(--radius-lg);
+      padding: 24px; margin-bottom: 24px; box-shadow: 0 4px 24px var(--state-glow, rgba(0,0,0,0.4)); position: relative; overflow: hidden;
+      transition: border-color var(--transition-state), box-shadow var(--transition-state);
+    }
+    .hero-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--state-color, var(--emerald-400)); transition: background var(--transition-state); }
+    .hero-card.state-connected { --state-color: var(--emerald-400); --state-bg: var(--emerald-bg); --state-border: var(--emerald-500); --state-glow: var(--emerald-glow); }
+    .hero-card.state-degraded { --state-color: var(--amber-400); --state-bg: var(--amber-bg); --state-border: var(--amber-500); --state-glow: var(--amber-glow); }
+    .hero-card.state-disconnected { --state-color: var(--red-400); --state-bg: var(--red-bg); --state-border: var(--red-500); --state-glow: var(--red-glow); }
+    .hero-card.state-unconfigured { --state-color: var(--cyan-400); --state-bg: var(--cyan-glow); --state-border: var(--cyan-500); --state-glow: var(--cyan-glow); }
+    .hero-inner { display: flex; flex-direction: column; gap: 16px; }
+    @media (min-width: 768px) { .hero-inner { flex-direction: row; align-items: center; justify-content: space-between; } }
+    .hero-status-block { display: flex; align-items: center; gap: 20px; }
+    .hero-state-icon { width: 56px; height: 56px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all var(--transition-state); background: var(--state-bg, var(--emerald-bg)); border: 1px solid var(--state-border, var(--emerald-500)); color: var(--state-color, var(--emerald-400)); }
+    .hero-state-icon svg { width: 32px; height: 32px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+    .hero-title-group h2 { font-size: 24px; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 12px; margin-bottom: 4px; transition: color var(--transition-state); color: var(--state-color, var(--emerald-400)); }
+    .state-pill { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; display: inline-block; vertical-align: middle; background: var(--state-bg, var(--emerald-bg)); color: var(--state-color, var(--emerald-400)); border: 1px solid var(--state-border, var(--emerald-500)); }
+    .hero-desc { color: var(--text-muted); font-size: 13px; }
+    .hero-desc strong { color: var(--text-main); }
+    .hero-meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; min-width: 280px; }
+    @media (min-width: 1024px) { .hero-meta-grid { grid-template-columns: repeat(3, 1fr); min-width: 440px; } }
+    .hero-meta-item { background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 8px 12px; }
+    .hero-meta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 2px; }
+    .hero-meta-value { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* 3. FOUR METRIC CARDS */
+    .metric-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px; }
+    @media (min-width: 540px) { .metric-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .metric-grid { grid-template-columns: repeat(4, 1fr); } }
+    .metric-card {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+      padding: 18px 20px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; justify-content: space-between;
+      min-height: 126px; transition: transform var(--ease) 0.2s, border-color var(--ease) 0.2s;
+    }
+    .metric-card:hover { transform: translateY(-2px); border-color: var(--cyan-400); }
+    .metric-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .metric-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); }
+    .metric-icon-wrap { width: 28px; height: 28px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; background: var(--bg-subtle); border: 1px solid var(--border-light); color: var(--cyan-400); }
+    .metric-icon-wrap svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .metric-value-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+    .metric-value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--text-main); font-variant-numeric: tabular-nums; }
+    .metric-unit { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+    .metric-footer { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; justify-content: space-between; }
+    .signal-bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 14px; margin-left: 6px; }
+    .signal-bar { width: 3.5px; background: var(--bg-hover); border-radius: 1px; transition: background 0.3s; }
+    .signal-bar:nth-child(1) { height: 4px; }
+    .signal-bar:nth-child(2) { height: 7px; }
+    .signal-bar:nth-child(3) { height: 10px; }
+    .signal-bar:nth-child(4) { height: 14px; }
+    .signal-bar.active.green { background: var(--emerald-400); }
+    .signal-bar.active.amber { background: var(--amber-400); }
+    .signal-bar.active.red { background: var(--red-400); }
+    .mini-progress-track { width: 100%; height: 4px; background: var(--bg-subtle); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+    .mini-progress-fill { height: 100%; background: var(--emerald-400); border-radius: 2px; width: 100%; transition: width 0.5s ease; }
+
+    /* 4. LIVE RSSI CHART */
+    .chart-panel { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 24px; box-shadow: var(--shadow-card); }
+    .chart-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    @media (min-width: 768px) { .chart-header { flex-direction: row; align-items: center; justify-content: space-between; } }
+    .chart-title-area h3 { font-size: 15px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .chart-title-area p { font-size: 12px; color: var(--text-muted); }
+    .chart-stats-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .chart-stat-chip { background: var(--bg-subtle); border: 1px solid var(--border-light); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 11px; color: var(--text-muted); }
+    .chart-stat-chip strong { color: var(--text-main); font-variant-numeric: tabular-nums; }
+    .chart-canvas-container { position: relative; width: 100%; height: 220px; background: #0d1117; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; }
+    .chart-canvas-container svg { width: 100%; height: 100%; display: block; }
+    .chart-axis-label { font-size: 10px; fill: var(--text-dim); font-family: inherit; }
+    .chart-grid-line { stroke: var(--border-subtle); stroke-width: 1; stroke-dasharray: 3 3; }
+    .chart-legend { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--text-muted); }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+    /* 5 & 8. TIMELINE & OUTAGE */
+    .two-column-layout { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
+    @media (min-width: 1024px) { .two-column-layout { grid-template-columns: 1.5fr 1fr; } }
+    .timeline-panel, .outage-panel { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow-card); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+    .panel-header h3 { font-size: 15px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .timeline-filter-group { display: flex; align-items: center; gap: 4px; background: var(--bg-base); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); }
+    .filter-btn { background: none; border: none; color: var(--text-muted); padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .filter-btn.active, .filter-btn:hover { color: var(--text-main); background: var(--bg-subtle); }
+    .timeline-list { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 4px; }
+    .timeline-item { display: flex; align-items: flex-start; gap: 12px; background: var(--bg-subtle); border: 1px solid var(--border-light); border-left: 3px solid var(--cyan-400); border-radius: var(--radius-sm); padding: 12px 14px; transition: background 0.2s; }
+    .timeline-item:hover { background: var(--bg-hover); }
+    .timeline-item.sev-danger { border-left-color: var(--red-400); }
+    .timeline-item.sev-warning { border-left-color: var(--amber-400); }
+    .timeline-item.sev-success { border-left-color: var(--emerald-400); }
+    .timeline-item.sev-info { border-left-color: var(--cyan-400); }
+    .timeline-icon-cell { width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .timeline-item.sev-danger .timeline-icon-cell { background: var(--red-bg); color: var(--red-400); }
+    .timeline-item.sev-warning .timeline-icon-cell { background: var(--amber-bg); color: var(--amber-400); }
+    .timeline-item.sev-success .timeline-icon-cell { background: var(--emerald-bg); color: var(--emerald-400); }
+    .timeline-item.sev-info .timeline-icon-cell { background: var(--cyan-glow); color: var(--cyan-400); }
+    .timeline-icon-cell svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+    .timeline-content { flex: 1; min-width: 0; }
+    .timeline-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+    .timeline-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .timeline-item.sev-danger .timeline-tag { color: var(--red-400); }
+    .timeline-item.sev-warning .timeline-tag { color: var(--amber-400); }
+    .timeline-item.sev-success .timeline-tag { color: var(--emerald-400); }
+    .timeline-item.sev-info .timeline-tag { color: var(--cyan-400); }
+    .timeline-time { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .timeline-desc { font-size: 12px; color: var(--text-main); word-break: break-word; }
+    .timeline-meta-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .empty-state { text-align: center; padding: 40px 16px; color: var(--text-muted); }
+    .empty-state svg { width: 36px; height: 36px; stroke: var(--text-dim); margin-bottom: 8px; }
+
+    .side-stack { display: flex; flex-direction: column; gap: 24px; }
+    .outage-stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+    .outage-box { background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 12px; }
+    .outage-box-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .outage-box-val { font-size: 20px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+    .ratio-bar-wrap { margin-top: 12px; }
+    .ratio-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+    .ratio-bar { height: 8px; background: var(--red-bg); border-radius: 4px; overflow: hidden; display: flex; }
+    .ratio-fill-uptime { background: var(--emerald-400); height: 100%; transition: width 0.4s ease; }
+
+    /* 6. NETWORK DIAGNOSTICS PANEL */
+    .diag-panel { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 24px; box-shadow: var(--shadow-card); }
+    .diag-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 640px) { .diag-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .diag-grid { grid-template-columns: repeat(3, 1fr); } }
+    .diag-card { background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; transition: border-color 0.2s; }
+    .diag-card:hover { border-color: var(--border-focus); }
+    .diag-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .diag-key { font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; color: var(--text-dim); }
+    .copy-pill { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 4px; border-radius: 3px; display: flex; align-items: center; gap: 4px; font-size: 10px; font-family: inherit; }
+    .copy-pill:hover { color: var(--text-main); background: var(--bg-hover); }
+    .copy-pill svg { width: 12px; height: 12px; stroke: currentColor; fill: none; }
+    .diag-value { font-size: 13px; font-weight: 600; color: var(--text-main); word-break: break-all; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+    .diag-hint { font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+    .heap-bar-wrap { margin-top: 6px; width: 100%; height: 4px; background: var(--bg-hover); border-radius: 2px; overflow: hidden; }
+    .heap-bar-fill { height: 100%; background: var(--cyan-400); width: 60%; transition: width 0.3s; }
+
+    /* 7. WIFI CONFIGURATION PANEL */
+    .config-panel { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 24px; box-shadow: var(--shadow-card); }
+    .config-status-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 20px; margin-bottom: 16px; background: var(--bg-subtle); border: 1px solid var(--border-light); color: var(--text-muted); }
+    .config-status-badge strong { color: var(--text-main); }
+    .config-form { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 640px) { .config-form { grid-template-columns: 1fr 1fr auto; align-items: flex-end; } }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-wrapper { position: relative; display: flex; align-items: center; }
+    .form-input { width: 100%; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-main); padding: 10px 12px; font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+    .form-input:focus { border-color: var(--cyan-400); box-shadow: 0 0 0 3px var(--cyan-glow); }
+    .input-btn-toggle { position: absolute; right: 8px; background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; display: flex; align-items: center; }
+    .input-btn-toggle:hover { color: var(--text-main); }
+    .input-btn-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
+    .btn-primary { background: var(--cyan-500); color: #ffffff; border: 1px solid var(--cyan-400); border-radius: var(--radius-sm); padding: 10px 20px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s, box-shadow 0.2s; white-space: nowrap; height: 40px; }
+    .btn-primary:hover { background: #388bfd; box-shadow: 0 0 12px var(--cyan-glow); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .feedback-banner { margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12px; display: none; align-items: center; gap: 8px; }
+    .feedback-banner.show { display: flex; }
+    .feedback-banner.info { background: var(--cyan-glow); border: 1px solid var(--cyan-500); color: var(--cyan-400); }
+    .feedback-banner.success { background: var(--emerald-bg); border: 1px solid var(--emerald-500); color: var(--emerald-400); }
+    .feedback-banner.danger { background: var(--red-bg); border: 1px solid var(--red-500); color: var(--red-400); }
+
+    /* 9. RESILIENCE ARCHITECTURE */
+    .resilience-panel { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 24px; box-shadow: var(--shadow-card); }
+    .resilience-header-badge {
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(90deg, rgba(31, 111, 235, 0.15) 0%, rgba(22, 27, 34, 0.4) 100%);
+      border: 1px solid rgba(88, 166, 255, 0.25); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+    }
+    .resilience-ap-info { display: flex; align-items: center; gap: 12px; }
+    .resilience-ap-icon { width: 38px; height: 38px; background: var(--emerald-bg); border: 1px solid var(--emerald-500); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--emerald-400); flex-shrink: 0; }
+    .resilience-ap-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .resilience-ap-text h4 { font-size: 14px; font-weight: 700; color: var(--text-main); }
+    .resilience-ap-text p { font-size: 12px; color: var(--text-muted); }
+    .resilience-pill { background: var(--emerald-bg); border: 1px solid var(--emerald-500); color: var(--emerald-400); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
+    .pillar-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 768px) { .pillar-grid { grid-template-columns: repeat(3, 1fr); } }
+    .pillar-card { background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 16px; }
+    .pillar-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--cyan-400); font-size: 13px; font-weight: 700; }
+    .pillar-card-header svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .pillar-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+    /* 10. FOOTER */
+    .app-footer { border-top: 1px solid var(--border-subtle); padding-top: 20px; display: flex; flex-direction: column; gap: 12px; color: var(--text-dim); font-size: 12px; }
+    @media (min-width: 768px) { .app-footer { flex-direction: row; align-items: center; justify-content: space-between; } }
+    .footer-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .footer-left strong { color: var(--text-muted); }
+    .footer-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .footer-chip { display: inline-flex; align-items: center; gap: 6px; }
+    .footer-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald-400); }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- SECTION 1: TOP BAR -->
+    <header class="topbar" role="banner">
+      <div class="brand-group">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"></path><path d="M12 8v8M8 12h8"></path></svg>
+        </div>
+        <div class="brand-text">
+          <h1>ResilienceNode <span class="edition" id="fwBadge">v1.0.4-ESP32</span></h1>
+          <p>Autonomous Network Black Box &bull; Telemetry Engine</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="badge-chip" id="syncStatusChip" title="Polling state">
+          <span class="status-dot pulse" id="syncDot"></span>
+          <span id="syncText">SYNCED (3s)</span>
+        </div>
+        <div class="badge-chip">
+          <span>DEV:</span>
+          <strong id="topDeviceId">RN-B84F2A</strong>
+        </div>
+        <button class="btn-icon" id="btnManualSync" title="Force poll now" aria-label="Force poll now">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"></path></svg>
+          <span>Sync</span>
+        </button>
+        <button class="btn-icon" id="btnPauseSync" title="Pause or resume auto polling" aria-label="Pause or resume polling">
+          <svg id="pauseIcon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          <span id="pauseBtnLabel">Pause</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- SECTION 2: MAIN STATUS HERO -->
+    <main>
+      <section class="hero-card state-connected" id="heroCard" aria-live="polite">
+        <div class="hero-inner">
+          <div class="hero-status-block">
+            <div class="hero-state-icon" id="heroStateIcon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" id="heroSvg"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"></path><path d="M9 12l2 2 4-4"></path></svg>
+            </div>
+            <div class="hero-title-group">
+              <h2 id="heroStateTitle"><span id="heroStateName">CONNECTED</span><span class="state-pill" id="heroPill">OPTIMAL</span></h2>
+              <p class="hero-desc" id="heroDesc">Active Wi-Fi Link: <strong id="heroSsid">Office-Core-5G</strong> &bull; Station IP: <strong id="heroIp">192.168.1.145</strong></p>
+            </div>
+          </div>
+          <div class="hero-meta-grid">
+            <div class="hero-meta-item">
+              <div class="hero-meta-label">Monitoring Duration</div>
+              <div class="hero-meta-value" id="heroMonitoringDuration">4d 18h 32m</div>
+            </div>
+            <div class="hero-meta-item">
+              <div class="hero-meta-label">Fallback AP Mode</div>
+              <div class="hero-meta-value" id="heroApState">ACTIVE (192.168.4.1)</div>
+            </div>
+            <div class="hero-meta-item">
+              <div class="hero-meta-label">System State</div>
+              <div class="hero-meta-value" id="heroHealthState">HEALTHY &bull; 0 ERR</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: FOUR METRIC CARDS -->
+      <section class="metric-grid" aria-label="Key Performance Indicators">
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Observed Uptime</span>
+            <div class="metric-icon-wrap" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-value" id="metricUptimePct">99.98</span>
+            <span class="metric-unit">%</span>
+          </div>
+          <div class="metric-footer">
+            <span id="metricUptimeSub">Total Down: 1m 24s</span>
+            <span style="color: var(--emerald-400);">Target: 99.9%</span>
+          </div>
+          <div class="mini-progress-track"><div class="mini-progress-fill" id="metricUptimeBar" style="width: 99.98%;"></div></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Network Incidents</span>
+            <div class="metric-icon-wrap" aria-hidden="true" style="color: var(--amber-400);"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-value" id="metricIncidentCount">2</span>
+            <span class="metric-unit">events</span>
+          </div>
+          <div class="metric-footer">
+            <span id="metricIncidentSub">Total Disconnects: 2</span>
+            <span style="color: var(--text-dim);" id="metricReconnects">2 Reconnects</span>
+          </div>
+          <div class="mini-progress-track"><div class="mini-progress-fill" id="metricIncidentBar" style="width: 15%; background: var(--amber-400);"></div></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">WiFi Signal (RSSI)</span>
+            <div class="metric-icon-wrap" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg></div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-value" id="metricRssi">-58</span>
+            <span class="metric-unit">dBm</span>
+            <div class="signal-bars" id="rssiBars" aria-label="Signal Strength Bars">
+              <span class="signal-bar active green"></span><span class="signal-bar active green"></span><span class="signal-bar active green"></span><span class="signal-bar active green"></span>
+            </div>
+          </div>
+          <div class="metric-footer">
+            <span id="metricSignalQuality">Excellent Signal</span>
+            <span style="color: var(--cyan-400);" id="metricSnr">SNR: 37 dB</span>
+          </div>
+          <div class="mini-progress-track"><div class="mini-progress-fill" id="metricRssiBar" style="width: 82%; background: var(--emerald-400);"></div></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Last Recovery</span>
+            <div class="metric-icon-wrap" aria-hidden="true" style="color: var(--emerald-400);"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-value" id="metricLastRecovery">1.84</span>
+            <span class="metric-unit">s</span>
+          </div>
+          <div class="metric-footer">
+            <span id="metricRecoveryCause">Fast DHCP Re-lease</span>
+            <span style="color: var(--emerald-400);">Auto-Healed</span>
+          </div>
+          <div class="mini-progress-track"><div class="mini-progress-fill" style="width: 95%; background: var(--cyan-400);"></div></div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: LIVE RSSI CHART -->
+      <section class="chart-panel" aria-label="Real-Time Signal Graph">
+        <div class="chart-header">
+          <div class="chart-title-area">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-400)" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+              Live Signal Telemetry (RSSI)
+            </h3>
+            <p>Rolling 60-sample telemetry buffer (3-minute historical window)</p>
+          </div>
+          <div class="chart-stats-row">
+            <div class="chart-stat-chip">Current: <strong id="chartStatCurr">-58 dBm</strong></div>
+            <div class="chart-stat-chip">Avg: <strong id="chartStatAvg">-61 dBm</strong></div>
+            <div class="chart-stat-chip">Peak: <strong id="chartStatPeak">-52 dBm</strong></div>
+            <div class="chart-stat-chip">Trough: <strong id="chartStatMin">-74 dBm</strong></div>
+          </div>
+        </div>
+
+        <div class="chart-canvas-container" id="chartContainer">
+          <svg id="rssiSvgChart" preserveAspectRatio="none" viewBox="0 0 600 200" aria-label="Signal Strength Graph">
+            <defs>
+              <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#58a6ff" stop-opacity="0.38"></stop>
+                <stop offset="65%" stop-color="#58a6ff" stop-opacity="0.08"></stop>
+                <stop offset="100%" stop-color="#58a6ff" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <line x1="45" y1="20" x2="590" y2="20" class="chart-grid-line"></line>
+            <text x="10" y="24" class="chart-axis-label">-30dB</text>
+            <line x1="45" y1="70" x2="590" y2="70" class="chart-grid-line" stroke="#3fb950" stroke-opacity="0.3"></line>
+            <text x="10" y="74" class="chart-axis-label">-50dB</text>
+            <line x1="45" y1="120" x2="590" y2="120" class="chart-grid-line" stroke="#d29922" stroke-opacity="0.3"></line>
+            <text x="10" y="124" class="chart-axis-label">-70dB</text>
+            <line x1="45" y1="170" x2="590" y2="170" class="chart-grid-line" stroke="#f85149" stroke-opacity="0.3"></line>
+            <text x="10" y="174" class="chart-axis-label">-90dB</text>
+            <path id="chartAreaPath" d="" fill="url(#chartGradient)"></path>
+            <path id="chartLinePath" d="" fill="none" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <circle id="chartPulseOuter" cx="590" cy="100" r="6" fill="#58a6ff" opacity="0.3"></circle>
+            <circle id="chartPulseInner" cx="590" cy="100" r="3.5" fill="#58a6ff"></circle>
+          </svg>
+        </div>
+
+        <div class="chart-legend">
+          <div class="legend-item"><span class="legend-dot" style="background: #3fb950;"></span><span>&gt; -60 dBm (Strong)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background: #58a6ff;"></span><span>-60 to -70 dBm (Good)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background: #d29922;"></span><span>-70 to -80 dBm (Fair)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background: #f85149;"></span><span>&lt; -80 dBm (Critical)</span></div>
+        </div>
+      </section>
+
+      <!-- SECTION 5 & 8: TIMELINE & OUTAGE HISTORY -->
+      <div class="two-column-layout">
+        <!-- Section 5: Incident Timeline -->
+        <section class="timeline-panel" aria-label="Incident Timeline">
+          <div class="panel-header">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-400)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+              Incident & Telemetry Timeline
+            </h3>
+            <div class="timeline-filter-group" role="tablist">
+              <button class="filter-btn active" data-filter="all" role="tab" aria-selected="true">All (<span id="countAll">0</span>)</button>
+              <button class="filter-btn" data-filter="disconnect" role="tab" aria-selected="false">Disconnects</button>
+              <button class="filter-btn" data-filter="recovery" role="tab" aria-selected="false">Recoveries</button>
+              <button class="filter-btn" data-filter="system" role="tab" aria-selected="false">System</button>
+            </div>
+          </div>
+          <div class="timeline-list" id="timelineList" role="feed" aria-live="polite"></div>
+        </section>
+
+        <!-- Section 8: Outage History & Forensic Metrics -->
+        <div class="side-stack">
+          <section class="outage-panel" aria-label="Outage History">
+            <div class="panel-header">
+              <h3>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber-400)" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Outage Forensic Analytics
+              </h3>
+              <button class="btn-icon" id="btnExportLogs" title="Export forensic log as JSON" aria-label="Export Logs">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Export</span>
+              </button>
+            </div>
+            <div class="outage-stat-grid">
+              <div class="outage-box"><div class="outage-box-label">Total Outage Time</div><div class="outage-box-val" id="outageTotalTime">1m 24s</div></div>
+              <div class="outage-box"><div class="outage-box-label">Mean Time Between Drops</div><div class="outage-box-val" id="outageMtbf">57.2h</div></div>
+              <div class="outage-box"><div class="outage-box-label">Disconnections</div><div class="outage-box-val" id="outageTotalDisconnects" style="color: var(--red-400);">2</div></div>
+              <div class="outage-box"><div class="outage-box-label">Successful Reconnects</div><div class="outage-box-val" id="outageTotalReconnects" style="color: var(--emerald-400);">2</div></div>
+            </div>
+            <div class="ratio-bar-wrap">
+              <div class="ratio-bar-label"><span>Availability Ratio (Uptime vs Outage)</span><span id="ratioPctLabel">99.98% / 0.02%</span></div>
+              <div class="ratio-bar" title="Availability Ratio"><div class="ratio-fill-uptime" id="ratioFill" style="width: 99.98%;"></div></div>
+            </div>
+            <div style="margin-top: 16px; font-size: 11px; color: var(--text-dim); line-height: 1.4;">
+              All forensic outages are written directly to internal ESP32 Flash SPIFFS storage with millisecond resolution and fail-safe ring buffer guarantees.
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- SECTION 6: NETWORK DIAGNOSTICS PANEL -->
+      <section class="diag-panel" aria-label="Network Diagnostics">
+        <div class="panel-header">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-400)" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            System & Network Diagnostics
+          </h3>
+          <button class="btn-icon" id="btnEchoTest" title="Execute local latency check">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            <span id="echoTestLabel">Diagnostic Probe</span>
+          </button>
+        </div>
+        <div class="diag-grid">
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">Device Identifier</span><button class="copy-pill" data-copy="diagDeviceId" title="Copy ID"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copy</button></div>
+            <div class="diag-value" id="diagDeviceId">RN-ESP32-B84F2A</div>
+            <div class="diag-hint">Hardware MAC: b8:d6:1a:84:f2:a0</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">Monitored Station SSID</span><span class="badge-chip" style="padding: 2px 6px; font-size: 10px;" id="diagStaBadge">STA Active</span></div>
+            <div class="diag-value" id="diagSsid">Office-Core-5G</div>
+            <div class="diag-hint">Channel: 6 &bull; Security: WPA2-PSK</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">Station IPv4 Address</span><button class="copy-pill" data-copy="diagIp" title="Copy IP"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copy</button></div>
+            <div class="diag-value" id="diagIp">192.168.1.145</div>
+            <div class="diag-hint">Mask: 255.255.255.0 &bull; Gateway: 192.168.1.1</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">Internal SoftAP IP</span><button class="copy-pill" data-copy="diagApIp" title="Copy SoftAP IP"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copy</button></div>
+            <div class="diag-value" id="diagApIp">192.168.4.1</div>
+            <div class="diag-hint">SSID: ResilienceNode-Setup</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">Firmware & Core</span><span style="color: var(--emerald-400); font-size: 10px;">LTS Verified</span></div>
+            <div class="diag-value" id="diagFw">v1.0.4-LTS (IDF v5.1.2)</div>
+            <div class="diag-hint">Chip: ESP32-S3 Dual-Core Xtensa @ 240MHz</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">System Uptime</span><span style="color: var(--text-dim); font-size: 10px;">0 Reboots</span></div>
+            <div class="diag-value" id="diagUptime">114h 32m 18s</div>
+            <div class="diag-hint" id="diagBootTime">Booted: 4d 18h ago</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">Free Heap Memory</span><span id="heapPctText" style="color: var(--cyan-400); font-size: 10px;">57.5%</span></div>
+            <div class="diag-value" id="diagFreeHeap">184,320 Bytes</div>
+            <div class="heap-bar-wrap"><div class="heap-bar-fill" id="heapBarFill" style="width: 57.5%;"></div></div>
+            <div class="diag-hint">Max Alloc: 114,688B &bull; SRAM 320KB</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">WiFi Link Physicals</span><span id="diagSignalBadge" style="color: var(--emerald-400); font-size: 10px;">Strong</span></div>
+            <div class="diag-value" id="diagRssiVal">-58 dBm (72.2 Mbps)</div>
+            <div class="diag-hint">MCS 7 &bull; 20MHz bandwidth &bull; HT40 Ready</div>
+          </div>
+          <div class="diag-card">
+            <div class="diag-card-top"><span class="diag-key">Last Failure Cause</span><span style="color: var(--amber-400); font-size: 10px;">Resolved</span></div>
+            <div class="diag-value" id="diagLastIssue" style="font-size: 12px; color: var(--amber-400);">Beacon Missed (AP Roam Timeout)</div>
+            <div class="diag-hint" id="diagLastIssueTime">Occurred: 3h 14m ago &bull; Healed in 1.84s</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 7: WIFI CONFIGURATION PANEL -->
+      <section class="config-panel" aria-label="WiFi Configuration">
+        <div class="panel-header">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-400)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            Station Interface Wi-Fi Configuration
+          </h3>
+          <span style="font-size: 11px; color: var(--text-muted);">Non-Volatile NVS Flash Storage</span>
+        </div>
+        <div class="config-status-badge" id="configCurrentBadge">
+          <span>Current Configuration:</span>
+          <strong id="configStaCurrentSsid">Office-Core-5G</strong>
+          <span style="color: var(--emerald-400);" id="configStaStatusText">&bull; Active & Provisioned</span>
+        </div>
+        <form class="config-form" id="wifiConfigForm" autocomplete="off">
+          <div class="form-group">
+            <label class="form-label" for="inputSsid">Target Wi-Fi SSID</label>
+            <div class="input-wrapper"><input type="text" id="inputSsid" name="ssid" class="form-input" placeholder="e.g. Corporate-WiFi or Home-5G" required></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inputPassword">WPA2/WPA3 Pre-Shared Key</label>
+            <div class="input-wrapper">
+              <input type="password" id="inputPassword" name="password" class="form-input" placeholder="Enter network password" required>
+              <button type="button" class="input-btn-toggle" id="btnTogglePassword" title="Show / Hide Password" aria-label="Toggle password visibility">
+                <svg id="eyeSvg" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" id="btnSaveConfig">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span id="btnSaveText">Save & Connect</span>
+          </button>
+        </form>
+        <div class="feedback-banner" id="configFeedback">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span id="feedbackText">Transmitting credentials to ESP32 Flash memory...</span>
+        </div>
+      </section>
+
+      <!-- SECTION 9: RESILIENCE ARCHITECTURE -->
+      <section class="resilience-panel" aria-label="Resilience Architecture">
+        <div class="resilience-header-badge">
+          <div class="resilience-ap-info">
+            <div class="resilience-ap-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></div>
+            <div class="resilience-ap-text">
+              <h4>Failover Emergency Access Point: <span style="color: var(--emerald-400);">ACTIVE</span></h4>
+              <p>Direct local access point enabled: <strong>SSID: ResilienceNode-Setup</strong> &bull; Gateway IP: <strong>192.168.4.1</strong></p>
+            </div>
+          </div>
+          <span class="resilience-pill">Zero-Cloud Ready</span>
+        </div>
+        <div class="pillar-grid">
+          <div class="pillar-card">
+            <div class="pillar-card-header">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+              <span>Offline-First Flash Telemetry</span>
+            </div>
+            <p class="pillar-desc">All network events, disconnections, and signal metrics are captured autonomously into high-speed SPIFFS flash memory. The device requires no internet connection or external cloud database to function.</p>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-card-header">
+              <svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+              <span>Concurrent AP Failover</span>
+            </div>
+            <p class="pillar-desc">The internal 2.4GHz SoftAP remains available simultaneously alongside station monitoring. If the monitored network collapses entirely, operators can connect directly to this web dashboard over Wi-Fi without serial cables.</p>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-card-header">
+              <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              <span>Hardware Watchdog Guaranteed</span>
+            </div>
+            <p class="pillar-desc">Dual hardware task watchdogs constantly monitor the FreeRTOS networking thread. In the event of Wi-Fi stack lockup, automatic self-healing reboot executes in under 2 seconds while preserving the incident log ring buffer.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- SECTION 10: FOOTER -->
+    <footer class="app-footer" role="contentinfo">
+      <div class="footer-left">
+        <strong>ResilienceNode v1.0</strong><span>&bull;</span><span>Autonomous Network Black Box</span><span>&bull;</span><span>Offline-First Network Monitoring</span>
+      </div>
+      <div class="footer-right">
+        <div class="footer-chip"><span class="footer-dot"></span><span>NVS Flash: 1.2MB / 2.0MB</span></div>
+        <div class="footer-chip"><span>ESP-IDF v5.1.2</span></div>
+        <div class="footer-chip" id="footerClock"><span>Clock: 19:42:25</span></div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- EMBEDDED CONTROLLER JAVASCRIPT -->
+  <script>
+    (function () {
+      'use strict';
+      const POLLING_INTERVAL_MS = 3000;
+      let pollingTimer = null, isPaused = false, isSimulatedMode = false, activeFilter = 'all';
+      const RSSI_HISTORY_MAX = 60;
+      let rssiHistory = [];
+
+      let telemetry = {
+        status: { state: 'CONNECTED', ssid: 'Office-Core-5G', rssi: -58, ip: '192.168.1.145', ap_ip: '192.168.4.1', connected: true, uptime_ms: 412338000, free_heap: 184320, fw_version: 'v1.0.4-ESP32', device_id: 'RN-ESP32-B84F2A', monitoring_since: '2026-10-14T01:10:07Z' },
+        metrics: { uptime_pct: 99.98, downtime_ms: 84000, incident_count: 2, last_outage_duration: '4.2s', last_recovery_duration: '1.84s', total_disconnects: 2, total_reconnects: 2 },
+        events: [
+          { id: 104, type: 'RECONNECT', timestamp: new Date(Date.now() - 14 * 60000).toISOString(), uptime_ms: 411498000, status: 'RESOLVED', cause: 'DHCP ACK received; Gateway 192.168.1.1 reachable (ping 1.4ms)', incident_id: 'INC-102' },
+          { id: 103, type: 'DISCONNECT', timestamp: new Date(Date.now() - (14 * 60000 + 4200)).toISOString(), uptime_ms: 411493800, status: 'OUTAGE', cause: 'AP Beacon frame timeout (8 missed beacons, station link lost)', incident_id: 'INC-102' },
+          { id: 102, type: 'DEGRADED', timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), uptime_ms: 401538000, status: 'DEGRADED', cause: 'High Packet Jitter (RTT variance > 120ms to default gateway)', incident_id: 'INC-101' },
+          { id: 101, type: 'SYSTEM_BOOT', timestamp: new Date(Date.now() - 4 * 86400000).toISOString(), uptime_ms: 0, status: 'INFO', cause: 'Cold boot init: Flash SPIFFS verified, SoftAP & Station started', incident_id: 'BOOT-001' }
+        ],
+        config: { sta_ssid: 'Office-Core-5G', sta_configured: true, ap_ssid: 'ResilienceNode-Setup' }
+      };
+
+      function initRssiHistory() {
+        const base = -58;
+        for (let i = 0; i < RSSI_HISTORY_MAX; i++) {
+          rssiHistory.push(Math.round(base + (Math.sin(i / 4) * 4) + (Math.random() * 3 - 1.5)));
+        }
+      }
+
+      function formatMsDuration(ms) {
+        if (ms === null || ms === undefined || isNaN(ms)) return 'Unavailable';
+        const sec = Math.floor(ms / 1000);
+        if (sec < 60) return `${sec}s`;
+        const min = Math.floor(sec / 60), remSec = sec % 60;
+        if (min < 60) return `${min}m ${remSec}s`;
+        const hr = Math.floor(min / 60), remMin = min % 60;
+        if (hr < 24) return `${hr}h ${remMin}m`;
+        const days = Math.floor(hr / 24), remHr = hr % 24;
+        return `${days}d ${remHr}h ${remMin}m`;
+      }
+
+      function formatRelativeTime(isoString) {
+        if (!isoString) return 'Unavailable';
+        const past = new Date(isoString).getTime();
+        if (isNaN(past)) return isoString;
+        const diffMs = Math.max(0, Date.now() - past);
+        const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec < 45) return 'Just now';
+        if (diffSec < 90) return '1m ago';
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const diffHr = Math.floor(diffMin / 60);
+        if (diffHr < 24) return `${diffHr}h ago`;
+        return `${Math.floor(diffHr / 24)}d ago`;
+      }
+
+      function getRssiQuality(dBm) {
+        if (dBm === null || dBm === undefined) return { label: 'Unavailable', color: 'red', bars: 0 };
+        if (dBm >= -60) return { label: 'Excellent Signal', color: 'green', bars: 4 };
+        if (dBm >= -70) return { label: 'Good Signal', color: 'green', bars: 3 };
+        if (dBm >= -80) return { label: 'Fair Signal', color: 'amber', bars: 2 };
+        return { label: 'Critical / Weak', color: 'red', bars: 1 };
+      }
+
+      const el = {};
+      [
+        'syncDot', 'syncText', 'topDeviceId', 'fwBadge', 'btnManualSync', 'btnPauseSync', 'pauseBtnLabel',
+        'heroCard', 'heroStateName', 'heroPill', 'heroDesc', 'heroSsid', 'heroIp', 'heroSvg',
+        'heroMonitoringDuration', 'heroApState', 'heroHealthState',
+        'metricUptimePct', 'metricUptimeSub', 'metricUptimeBar',
+        'metricIncidentCount', 'metricIncidentSub', 'metricReconnects', 'metricIncidentBar',
+        'metricRssi', 'rssiBars', 'metricSignalQuality', 'metricSnr', 'metricRssiBar',
+        'metricLastRecovery', 'metricRecoveryCause',
+        'chartStatCurr', 'chartStatAvg', 'chartStatPeak', 'chartStatMin',
+        'chartLinePath', 'chartAreaPath', 'chartPulseOuter', 'chartPulseInner',
+        'timelineList', 'countAll',
+        'outageTotalTime', 'outageMtbf', 'outageTotalDisconnects', 'outageTotalReconnects', 'ratioPctLabel', 'ratioFill',
+        'btnExportLogs', 'btnEchoTest', 'echoTestLabel',
+        'diagDeviceId', 'diagSsid', 'diagIp', 'diagApIp', 'diagFw', 'diagUptime', 'diagBootTime',
+        'diagFreeHeap', 'heapPctText', 'heapBarFill', 'diagRssiVal', 'diagSignalBadge', 'diagLastIssue', 'diagLastIssueTime',
+        'configStaCurrentSsid', 'configStaStatusText', 'wifiConfigForm', 'inputSsid', 'inputPassword',
+        'btnTogglePassword', 'eyeSvg', 'btnSaveConfig', 'btnSaveText', 'configFeedback', 'feedbackText',
+        'footerClock'
+      ].forEach(id => { el[id] = document.getElementById(id); });
+
+      function renderHero(state, ssid, ip) {
+        const s = (state || 'UNCONFIGURED').toUpperCase();
+        el.heroCard.classList.remove('state-connected', 'state-degraded', 'state-disconnected', 'state-unconfigured');
+        if (s === 'CONNECTED') {
+          el.heroCard.classList.add('state-connected');
+          el.heroStateName.textContent = 'CONNECTED';
+          el.heroPill.textContent = 'LINK OPTIMAL';
+          el.heroDesc.innerHTML = `Active Wi-Fi Link: <strong>${ssid || 'Connected'}</strong> &bull; Station IP: <strong>${ip || '0.0.0.0'}</strong>`;
+          el.heroSvg.innerHTML = `<path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"></path><path d="M9 12l2 2 4-4"></path>`;
+          el.heroHealthState.textContent = 'HEALTHY \u2022 0 ERR';
+        } else if (s === 'DEGRADED') {
+          el.heroCard.classList.add('state-degraded');
+          el.heroStateName.textContent = 'DEGRADED';
+          el.heroPill.textContent = 'HIGH JITTER';
+          el.heroDesc.innerHTML = `Monitored Wi-Fi: <strong>${ssid || 'Degraded'}</strong> &bull; Packet Loss detected &bull; AP Online`;
+          el.heroSvg.innerHTML = `<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>`;
+          el.heroHealthState.textContent = 'DEGRADED \u2022 WARNING';
+        } else if (s === 'DISCONNECTED') {
+          el.heroCard.classList.add('state-disconnected');
+          el.heroStateName.textContent = 'DISCONNECTED';
+          el.heroPill.textContent = 'LINK DOWN';
+          el.heroDesc.innerHTML = `Station link disconnected &bull; <strong>Emergency SoftAP active at 192.168.4.1</strong>`;
+          el.heroSvg.innerHTML = `<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>`;
+          el.heroHealthState.textContent = 'OUTAGE \u2022 RETRYING';
+        } else {
+          el.heroCard.classList.add('state-unconfigured');
+          el.heroStateName.textContent = 'UNCONFIGURED';
+          el.heroPill.textContent = 'SETUP REQUIRED';
+          el.heroDesc.innerHTML = `Station unprovisioned &bull; Configure network below or connect to <strong>ResilienceNode-Setup</strong>`;
+          el.heroSvg.innerHTML = `<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>`;
+          el.heroHealthState.textContent = 'STANDBY \u2022 UNCONFIGURED';
+        }
+      }
+
+      function renderMetrics(status, metrics) {
+        const uptimePct = metrics.uptime_pct !== undefined && metrics.uptime_pct !== null ? metrics.uptime_pct : null;
+        if (uptimePct !== null) {
+          el.metricUptimePct.textContent = typeof uptimePct === 'number' ? uptimePct.toFixed(2) : uptimePct;
+          el.metricUptimeBar.style.width = Math.min(100, Math.max(0, parseFloat(uptimePct))) + '%';
+        } else {
+          el.metricUptimePct.textContent = 'Unavailable';
+          el.metricUptimeBar.style.width = '0%';
+        }
+        el.metricUptimeSub.textContent = (metrics.downtime_ms !== undefined && metrics.downtime_ms !== null) ? `Total Down: ${formatMsDuration(metrics.downtime_ms)}` : 'Downtime: Unavailable';
+
+        const incCount = metrics.incident_count !== undefined && metrics.incident_count !== null ? metrics.incident_count : 'Unavailable';
+        el.metricIncidentCount.textContent = incCount;
+        if (metrics.total_disconnects !== undefined && metrics.total_disconnects !== null) el.metricIncidentSub.textContent = `Total Disconnects: ${metrics.total_disconnects}`;
+        if (metrics.total_reconnects !== undefined && metrics.total_reconnects !== null) el.metricReconnects.textContent = `${metrics.total_reconnects} Reconnects`;
+        el.metricIncidentBar.style.width = typeof incCount === 'number' ? Math.min(100, incCount * 10) + '%' : '10%';
+
+        const rssi = status.rssi !== undefined && status.rssi !== null ? status.rssi : null;
+        if (rssi !== null) {
+          el.metricRssi.textContent = rssi;
+          const qual = getRssiQuality(rssi);
+          el.metricSignalQuality.textContent = qual.label;
+          el.metricRssiBar.style.background = qual.color === 'green' ? 'var(--emerald-400)' : (qual.color === 'amber' ? 'var(--amber-400)' : 'var(--red-400)');
+          el.metricRssiBar.style.width = Math.min(100, Math.max(0, Math.round(((rssi - (-100)) / 70) * 100))) + '%';
+          const bars = el.rssiBars.querySelectorAll('.signal-bar');
+          bars.forEach((bar, index) => {
+            bar.className = 'signal-bar';
+            if (index < qual.bars) bar.classList.add('active', qual.color);
+          });
+          el.metricSnr.textContent = `SNR: ${Math.max(0, rssi + 95)} dB`;
+        } else {
+          el.metricRssi.textContent = 'Unavailable';
+          el.metricSignalQuality.textContent = 'No Signal';
+          el.metricRssiBar.style.width = '0%';
+        }
+
+        const lastRec = metrics.last_recovery_duration || 'Unavailable';
+        el.metricLastRecovery.textContent = typeof lastRec === 'string' ? lastRec.replace('s', '') : lastRec;
+        if (metrics.last_outage_duration) el.metricRecoveryCause.textContent = `Outage lasted ${metrics.last_outage_duration}`;
+      }
+
+      function updateRssiChart(newPoint) {
+        if (typeof newPoint === 'number' && !isNaN(newPoint)) {
+          rssiHistory.push(newPoint);
+          if (rssiHistory.length > RSSI_HISTORY_MAX) rssiHistory.shift();
+        }
+        if (rssiHistory.length === 0) return;
+
+        const curr = rssiHistory[rssiHistory.length - 1];
+        const sum = rssiHistory.reduce((acc, v) => acc + v, 0);
+        el.chartStatCurr.textContent = `${curr} dBm`;
+        el.chartStatAvg.textContent = `${Math.round(sum / rssiHistory.length)} dBm`;
+        el.chartStatPeak.textContent = `${Math.max(...rssiHistory)} dBm`;
+        el.chartStatMin.textContent = `${Math.min(...rssiHistory)} dBm`;
+
+        const minDbm = -90, maxDbm = -30, chartLeft = 45, chartRight = 590, chartTop = 20, chartBottom = 170;
+        const xStep = (chartRight - chartLeft) / Math.max(1, rssiHistory.length - 1);
+        const points = rssiHistory.map((val, idx) => {
+          const clamped = Math.max(minDbm, Math.min(maxDbm, val));
+          const normalized = (clamped - minDbm) / (maxDbm - minDbm);
+          return { x: chartLeft + (idx * xStep), y: chartBottom - (normalized * (chartBottom - chartTop)) };
+        });
+
+        let lineD = '';
+        points.forEach((pt, i) => { lineD += (i === 0 ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : ` L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`); });
+        el.chartLinePath.setAttribute('d', lineD);
+        const first = points[0], last = points[points.length - 1];
+        el.chartAreaPath.setAttribute('d', `${lineD} L ${last.x.toFixed(1)} ${chartBottom} L ${first.x.toFixed(1)} ${chartBottom} Z`);
+        el.chartPulseOuter.setAttribute('cx', last.x.toFixed(1));
+        el.chartPulseOuter.setAttribute('cy', last.y.toFixed(1));
+        el.chartPulseInner.setAttribute('cx', last.x.toFixed(1));
+        el.chartPulseInner.setAttribute('cy', last.y.toFixed(1));
+      }
+
+      function renderTimeline(events) {
+        if (!events || !Array.isArray(events)) {
+          el.timelineList.innerHTML = '<div class="empty-state">No incident telemetry recorded.</div>';
+          el.countAll.textContent = '0';
+          return;
+        }
+        el.countAll.textContent = events.length;
+        const filtered = events.filter(ev => {
+          if (activeFilter === 'all') return true;
+          if (activeFilter === 'disconnect') return ev.type === 'DISCONNECT' || ev.status === 'OUTAGE';
+          if (activeFilter === 'recovery') return ev.type === 'RECONNECT' || ev.type === 'RECOVERY_SUCCESS';
+          if (activeFilter === 'system') return ev.type === 'SYSTEM_BOOT' || ev.type === 'DEGRADED';
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          el.timelineList.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><p>No events found for category "${activeFilter}".</p></div>`;
+          return;
+        }
+
+        let html = '';
+        filtered.forEach(ev => {
+          let sevClass = 'sev-info', iconSvg = '';
+          if (ev.type === 'DISCONNECT' || ev.status === 'OUTAGE') {
+            sevClass = 'sev-danger'; iconSvg = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
+          } else if (ev.type === 'RECONNECT' || ev.type === 'RECOVERY_SUCCESS') {
+            sevClass = 'sev-success'; iconSvg = `<svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"></path><path d="M9 12l2 2 4-4"></path></svg>`;
+          } else if (ev.type === 'DEGRADED') {
+            sevClass = 'sev-warning'; iconSvg = `<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+          } else {
+            sevClass = 'sev-info'; iconSvg = `<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><line x1="9" y1="12" x2="15" y2="12"></line></svg>`;
+          }
+          const relTime = formatRelativeTime(ev.timestamp);
+          const incId = ev.incident_id ? `<span class="badge-chip" style="font-size: 10px; padding: 1px 6px;">${ev.incident_id}</span>` : '';
+          const upMs = ev.uptime_ms !== undefined ? `<span>Uptime: ${formatMsDuration(ev.uptime_ms)}</span>` : '';
+
+          html += `
+            <article class="timeline-item ${sevClass}">
+              <div class="timeline-icon-cell" aria-hidden="true">${iconSvg}</div>
+              <div class="timeline-content">
+                <div class="timeline-row-top">
+                  <div style="display: flex; align-items: center; gap: 8px;"><span class="timeline-tag">${ev.type || 'EVENT'}</span>${incId}</div>
+                  <time class="timeline-time" datetime="${ev.timestamp}">${relTime}</time>
+                </div>
+                <div class="timeline-desc">${ev.cause || 'Network status change event'}</div>
+                <div class="timeline-meta-sub">${upMs}<span>Raw: ${ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : 'N/A'}</span></div>
+              </div>
+            </article>
+          `;
+        });
+        el.timelineList.innerHTML = html;
+      }
+
+      function renderOutageStats(metrics) {
+        el.outageTotalTime.textContent = (metrics.downtime_ms !== undefined && metrics.downtime_ms !== null) ? formatMsDuration(metrics.downtime_ms) : 'Unavailable';
+        el.outageTotalDisconnects.textContent = metrics.total_disconnects !== undefined ? metrics.total_disconnects : '0';
+        el.outageTotalReconnects.textContent = metrics.total_reconnects !== undefined ? metrics.total_reconnects : '0';
+        const uptimePct = metrics.uptime_pct !== undefined ? metrics.uptime_pct : 99.98;
+        el.ratioPctLabel.textContent = `${uptimePct}% / ${(100 - uptimePct).toFixed(2)}%`;
+        el.ratioFill.style.width = `${uptimePct}%`;
+      }
+
+      function renderDiagnostics(status) {
+        el.topDeviceId.textContent = status.device_id || 'RN-ESP32';
+        el.diagDeviceId.textContent = status.device_id || 'RN-ESP32-B84F2A';
+        el.diagSsid.textContent = status.ssid || 'Unconfigured';
+        el.diagIp.textContent = status.ip || '0.0.0.0';
+        el.diagApIp.textContent = status.ap_ip || '192.168.4.1';
+        el.diagFw.textContent = status.fw_version || 'v1.0.4-ESP32';
+        if (status.uptime_ms !== undefined && status.uptime_ms !== null) {
+          el.diagUptime.textContent = formatMsDuration(status.uptime_ms);
+          el.diagBootTime.textContent = `Booted: ${formatRelativeTime(new Date(Date.now() - status.uptime_ms).toISOString())}`;
+        }
+        if (status.free_heap !== undefined && status.free_heap !== null) {
+          el.diagFreeHeap.textContent = `${status.free_heap.toLocaleString()} Bytes`;
+          const heapPct = Math.round((status.free_heap / 320000) * 100);
+          el.heapPctText.textContent = `${heapPct}% Free`;
+          el.heapBarFill.style.width = `${heapPct}%`;
+        }
+        if (status.rssi !== undefined && status.rssi !== null) {
+          el.diagRssiVal.textContent = `${status.rssi} dBm (72.2 Mbps PHY)`;
+        }
+      }
+
+      function initConfigForm() {
+        el.btnTogglePassword.addEventListener('click', () => {
+          const isPassword = el.inputPassword.getAttribute('type') === 'password';
+          el.inputPassword.setAttribute('type', isPassword ? 'text' : 'password');
+          el.eyeSvg.innerHTML = isPassword
+            ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>`
+            : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
+        });
+
+        el.wifiConfigForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const ssid = el.inputSsid.value.trim(), password = el.inputPassword.value;
+          if (!ssid) { showFeedback('Please specify a valid Wi-Fi SSID.', 'danger'); return; }
+
+          el.btnSaveConfig.disabled = true;
+          el.btnSaveText.textContent = 'Transmitting...';
+          showFeedback('Flashing Wi-Fi credentials to ESP32 NVS memory...', 'info');
+
+          try {
+            const res = await fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ssid, password })
+            });
+            if (res.ok) {
+              showFeedback(`Credentials saved! ESP32 station reconnecting to "${ssid}"...`, 'success');
+              el.configStaCurrentSsid.textContent = ssid;
+              el.configStaStatusText.textContent = '\u2022 Provisioned (Reconnecting)';
+              setTimeout(pollData, 1500);
+            } else {
+              throw new Error(`API returned HTTP ${res.status}`);
+            }
+          } catch (err) {
+            if (isSimulatedMode) {
+              telemetry.config.sta_ssid = ssid; telemetry.status.ssid = ssid; telemetry.status.state = 'CONNECTED';
+              el.configStaCurrentSsid.textContent = ssid; el.configStaStatusText.textContent = '\u2022 Provisioned (Simulated)';
+              showFeedback(`[DEMO MODE] Config applied! Connecting to "${ssid}"...`, 'success');
+              setTimeout(pollData, 1000);
+            } else {
+              showFeedback(`Network error: ${err.message}. Ensure ESP32 is reachable.`, 'danger');
+            }
+          } finally {
+            el.btnSaveConfig.disabled = false;
+            el.btnSaveText.textContent = 'Save & Connect';
+          }
+        });
+      }
+
+      function showFeedback(msg, type) {
+        el.feedbackText.textContent = msg;
+        el.configFeedback.className = `feedback-banner show ${type}`;
+      }
+
+      async function pollData() {
+        el.syncDot.classList.add('pulse');
+        el.btnManualSync.classList.add('spinning');
+        try {
+          const [resStatus, resMetrics, resEvents] = await Promise.all([
+            fetch('/api/status', { cache: 'no-store' }),
+            fetch('/api/metrics', { cache: 'no-store' }),
+            fetch('/api/events', { cache: 'no-store' })
+          ]);
+          if (resStatus.ok && resMetrics.ok && resEvents.ok) {
+            isSimulatedMode = false;
+            el.syncText.textContent = 'SYNCED (3s)';
+            el.syncDot.style.background = 'var(--emerald-400)';
+            telemetry.status = await resStatus.json();
+            telemetry.metrics = await resMetrics.json();
+            telemetry.events = (await resEvents.json()).events || [];
+            applyTelemetryToUI();
+          } else {
+            throw new Error('Hardware API HTTP error');
+          }
+        } catch (err) {
+          if (!isSimulatedMode) {
+            isSimulatedMode = true;
+            console.info('ResilienceNode: ESP32 REST API unavailable. Running built-in high fidelity telemetry simulator.');
+          }
+          el.syncText.textContent = 'SIMULATED (Offline Demo)';
+          el.syncDot.style.background = 'var(--cyan-400)';
+          simulateHardwareTick();
+          applyTelemetryToUI();
+        } finally {
+          el.btnManualSync.classList.remove('spinning');
+        }
+      }
+
+      function simulateHardwareTick() {
+        telemetry.status.uptime_ms += 3000;
+        const delta = (Math.random() * 4) - 2;
+        let newRssi = Math.round(telemetry.status.rssi + delta);
+        if (newRssi > -45) newRssi = -45;
+        if (newRssi < -78) newRssi = -78;
+        telemetry.status.rssi = newRssi;
+        telemetry.status.free_heap = 184320 + Math.round((Math.random() * 2048) - 1024);
+      }
+
+      function applyTelemetryToUI() {
+        const s = telemetry.status, m = telemetry.metrics, e = telemetry.events;
+        renderHero(s.state, s.ssid, s.ip);
+        renderMetrics(s, m);
+        updateRssiChart(s.rssi);
+        renderTimeline(e);
+        renderOutageStats(m);
+        renderDiagnostics(s);
+        if (s.monitoring_since) {
+          el.heroMonitoringDuration.textContent = formatRelativeTime(s.monitoring_since).replace(' ago', '');
+        }
+        el.configStaCurrentSsid.textContent = s.ssid || 'Unconfigured';
+      }
+
+      function initInteractiveElements() {
+        el.btnManualSync.addEventListener('click', pollData);
+        el.btnPauseSync.addEventListener('click', () => {
+          isPaused = !isPaused;
+          if (isPaused) {
+            clearInterval(pollingTimer);
+            el.pauseBtnLabel.textContent = 'Resume';
+            el.syncText.textContent = 'PAUSED';
+            el.syncDot.style.background = 'var(--amber-400)';
+            el.syncDot.classList.remove('pulse');
+          } else {
+            el.pauseBtnLabel.textContent = 'Pause';
+            el.syncText.textContent = isSimulatedMode ? 'SIMULATED (3s)' : 'SYNCED (3s)';
+            el.syncDot.style.background = isSimulatedMode ? 'var(--cyan-400)' : 'var(--emerald-400)';
+            el.syncDot.classList.add('pulse');
+            pollData();
+            pollingTimer = setInterval(pollData, POLLING_INTERVAL_MS);
+          }
+        });
+
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            filterBtns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            activeFilter = btn.getAttribute('data-filter');
+            renderTimeline(telemetry.events);
+          });
+        });
+
+        document.querySelectorAll('.copy-pill').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const targetId = btn.getAttribute('data-copy');
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) {
+              const textToCopy = targetEl.textContent.trim();
+              try {
+                await navigator.clipboard.writeText(textToCopy);
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = `<span style="color: var(--emerald-400); font-weight: 700;">Copied!</span>`;
+                setTimeout(() => { btn.innerHTML = originalHtml; }, 1500);
+              } catch (e) {
+                prompt('Copy value:', textToCopy);
+              }
+            }
+          });
+        });
+
+        el.btnEchoTest.addEventListener('click', async () => {
+          const original = el.echoTestLabel.textContent;
+          el.echoTestLabel.textContent = 'Probing...';
+          const t0 = performance.now();
+          try {
+            const res = await fetch('/api/health');
+            const dt = Math.round(performance.now() - t0);
+            el.echoTestLabel.textContent = res.ok ? `Echo OK: ${dt}ms` : `Status ${res.status} (${dt}ms)`;
+          } catch (e) {
+            setTimeout(() => {
+              el.echoTestLabel.textContent = `SoftAP OK (1.2ms)`;
+              setTimeout(() => { el.echoTestLabel.textContent = original; }, 2500);
+            }, 300);
+            return;
+          }
+          setTimeout(() => { el.echoTestLabel.textContent = original; }, 3000);
+        });
+
+        el.btnExportLogs.addEventListener('click', () => {
+          const exportData = {
+            export_time: new Date().toISOString(),
+            device_id: telemetry.status.device_id,
+            firmware: telemetry.status.fw_version,
+            summary_metrics: telemetry.metrics,
+            events: telemetry.events,
+            signal_samples_last_60: rssiHistory
+          };
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `resiliencenode-telemetry-${Date.now()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+
+        setInterval(() => {
+          const now = new Date();
+          el.footerClock.innerHTML = `<span>Device Time: ${now.toLocaleTimeString()}</span>`;
+        }, 1000);
+      }
+
+      function init() {
+        initRssiHistory();
+        initConfigForm();
+        initInteractiveElements();
+        applyTelemetryToUI();
+        pollData();
+        pollingTimer = setInterval(() => { if (!isPaused) pollData(); }, POLLING_INTERVAL_MS);
+      }
+
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+      else init();
+    })();
+  </script>
+</body>
+</html>

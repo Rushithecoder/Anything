@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResilienceNode — Autonomous Edge Network Monitoring Black Box</title>
+  <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --card-bg: rgba(18, 24, 38, 0.85);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-crimson: #ef4444;
+      --accent-purple: #a855f7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --code-font: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.06) 0%, transparent 40%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Header & Navigation Bar */
+    header {
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-emerald));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    .slide-badge {
+      font-family: var(--code-font);
+      font-size: 0.85rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--accent-cyan);
+    }
+
+    /* Presentation Slide Deck Container */
+    .deck-container {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 60px;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      width: 100%;
+      max-width: 1200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(0.96) translateY(20px);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1) translateY(0);
+    }
+
+    /* Typography & Core Elements */
+    .slide-tag {
+      font-family: var(--code-font);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .slide-tag::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: var(--accent-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+
+    h1.slide-title {
+      font-size: 3.2rem;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h2.slide-subtitle {
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      max-width: 800px;
+      line-height: 1.5;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    /* Card Styling */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #ffffff;
+    }
+
+    .card-text {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .highlight-stat {
+      font-size: 2.8rem;
+      font-weight: 800;
+      font-family: var(--code-font);
+      margin-bottom: 4px;
+      letter-spacing: -0.05em;
+    }
+
+    .stat-cyan { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(56,189,248,0.3); }
+    .stat-emerald { color: var(--accent-emerald); text-shadow: 0 0 20px rgba(16,185,129,0.3); }
+    .stat-crimson { color: var(--accent-crimson); text-shadow: 0 0 20px rgba(239,68,68,0.3); }
+    .stat-amber { color: var(--accent-amber); text-shadow: 0 0 20px rgba(245,158,11,0.3); }
+
+    /* Code & Terminal Blocks */
+    .code-box {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: var(--code-font);
+      font-size: 0.85rem;
+      color: #38bdf8;
+      line-height: 1.5;
+      overflow-x: auto;
+    }
+
+    /* Pill Badges */
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--code-font);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-emerald { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-crimson { background: rgba(239, 68, 68, 0.15); color: var(--accent-crimson); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-amber { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-cyan { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border: 1px solid rgba(56, 189, 248, 0.3); }
+
+    /* Footer Controls */
+    footer {
+      padding: 18px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 10;
+    }
+
+    .key-hints {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .key {
+      padding: 3px 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      font-family: var(--code-font);
+      font-size: 0.75rem;
+      color: #ffffff;
+    }
+
+    .nav-btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <span>ResilienceNode</span>
+    </div>
+    <div class="slide-badge" id="slideIndicator">SLIDE 1 / 6</div>
+  </header>
+
+  <!-- Presentation Deck Container -->
+  <main class="deck-container">
+
+    <!-- SLIDE 1: Title & Vision -->
+    <section class="slide active" id="slide-1">
+      <div class="slide-tag">Autonomous Edge Telemetry</div>
+      <h1 class="slide-title">The Flight Data Recorder<br>For Mission-Critical Edge Networks</h1>
+      <h2 class="slide-subtitle">Always-on local diagnostics, root-cause incident classification, and persistent black-box telemetry for zero-cloud environments.</h2>
+      
+      <div class="grid-3" style="margin-top: 10px;">
+        <div class="card">
+          <div class="card-title">📡 Dual-Mode Wi-Fi</div>
+          <div class="card-text">Maintains monitored uplink connection while broadcasting an emergency out-of-band management AP (192.168.4.1).</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚡ Multi-Tier Probing</div>
+          <div class="card-text">Non-blocking Layer-3 ICMP probes local gateway, DNS, and cloud targets with sub-millisecond precision.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">💾 Black-Box NVS Flash</div>
+          <div class="card-text">Power-fail-safe event store commits 100 historical incident records with flash wear-leveling resilience.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2: Problem Statement -->
+    <section class="slide" id="slide-2">
+      <div class="slide-tag">The Fundamental Flaw</div>
+      <h1 class="slide-title">The "Blind Outage" Paradox</h1>
+      <h2 class="slide-subtitle">When edge routers hang or ISPs drop, cloud monitoring agents lose connectivity simultaneously—leaving engineers blind.</h2>
+
+      <div class="grid-2">
+        <div class="card" style="border-left: 4px solid var(--accent-crimson);">
+          <div class="card-title"><span style="color:var(--accent-crimson);">❌</span> Cloud Monitoring (Datadog / Pingdom)</div>
+          <div class="card-text">
+            • <strong>Blinded by design:</strong> Outside-in monitoring cannot see behind a severed connection.<br>
+            • <strong>Vague alarms:</strong> Dashboard simply reports "Host Offline"—no root cause.<br>
+            • <strong>Zero local access:</strong> On-site field technicians have no diagnostics when internet drops.<br>
+            • <strong>High recurring cost:</strong> Subscriptions scale aggressively per monitored agent.
+          </div>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent-emerald);">
+          <div class="card-title"><span style="color:var(--accent-emerald);">✔️</span> ResilienceNode Architecture</div>
+          <div class="card-text">
+            • <strong>Inside-out vantage point:</strong> Monitors from within the critical network zone.<br>
+            • <strong>Multi-tier fault isolation:</strong> Distinguishes router crashes from ISP drops in 6s.<br>
+            • <strong>Guaranteed out-of-band access:</strong> SoftAP (192.168.4.1) never drops during blackouts.<br>
+            • <strong>One-time $5 hardware BOM:</strong> Zero recurring SaaS license fees.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: Solution Architecture -->
+    <section class="slide" id="slide-3">
+      <div class="slide-tag">Hardware & Firmware Design</div>
+      <h1 class="slide-title">Deterministic Embedded Engineering</h1>
+      <h2 class="slide-subtitle">Built on ESP-IDF v5 and FreeRTOS, optimized for microsecond latency, zero heap leaks, and power-cut survivability.</h2>
+
+      <div class="grid-4">
+        <div class="card">
+          <div class="highlight-stat stat-cyan">240<span style="font-size:1.4rem;">MHz</span></div>
+          <div class="card-title">Dual Xtensa LX6</div>
+          <div class="card-text">Core 0: Wi-Fi MAC & lwIP<br>Core 1: Probes, FSM & HTTP</div>
+        </div>
+        <div class="card">
+          <div class="highlight-stat stat-emerald">1.4<span style="font-size:1.4rem;">sec</span></div>
+          <div class="card-title">Cold Boot to AP</div>
+          <div class="card-text">Instant SoftAP broadcast and sub-100ms dashboard delivery.</div>
+        </div>
+        <div class="card">
+          <div class="highlight-stat stat-amber">&lt;32<span style="font-size:1.4rem;">KB</span></div>
+          <div class="card-title">Zero-Dep SPA UI</div>
+          <div class="card-text">Compressed directly in flash ROM; zero cloud or CDN dependencies.</div>
+        </div>
+        <div class="card">
+          <div class="highlight-stat stat-cyan">&gt;200<span style="font-size:1.4rem;">KB</span></div>
+          <div class="card-title">Free Heap Headroom</div>
+          <div class="card-text">Stateless HTTP polling avoids WebSocket connection exhaustion.</div>
+        </div>
+      </div>
+
+      <div class="code-box">
+        // 5-State Finite State Machine (Hysteresis Guarded)
+        HEALTHY ──[Loss > 5% | RTT > 150ms]──> DEGRADED ──[WAN Ping Fails x3]──> OUTAGE
+           ▲                                                                       │
+           └──────────────── [5 Clean Probes Verified] ◄─── RECOVERING ───────────┘
+      </div>
+    </section>
+
+    <!-- SLIDE 4: Out-of-Band & Data Persistence -->
+    <section class="slide" id="slide-4">
+      <div class="slide-tag">Out-of-Band Resilience</div>
+      <h1 class="slide-title">Black-Box Flash & Live Dashboard</h1>
+      <h2 class="slide-subtitle">Field-tested out-of-band diagnostics and crash-proof data persistence.</h2>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📊 Real-Time Diagnostic Dashboard</div>
+          <div class="card-text">
+            • <strong>Zero Configuration:</strong> Connect to <code>ResilienceNode-XXXX</code> and open <code>192.168.4.1</code>.<br>
+            • <strong>1 Hz Live Telemetry:</strong> Instant RTT latency gauges, RFC 3550 jitter variance, and packet loss %.<br>
+            • <strong>Target Probe Matrix:</strong> Real-time status for Gateway, Google DNS (8.8.8.8), and Cloudflare (1.1.1.1).<br>
+            • <strong>One-Click Audit Export:</strong> Stream chunked CSV / JSON incident history directly to phone.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🛡️ Hardware-Enforced Safety</div>
+          <div class="card-text">
+            • <strong>NVS Flash Circular Buffer:</strong> Stores 100 historical failure incidents across hard power cuts.<br>
+            • <strong>Flash Wear-Leveling:</strong> Distributed sector writes guarantee >15 years continuous operation.<br>
+            • <strong>Hardware Task Watchdog:</strong> 10-second tripwire prevents task deadlock or memory locks.<br>
+            • <strong>Exponential Reconnection:</strong> Smart backoff (1s to 30s) prevents RF thrashing during router reboots.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: Live Demonstration Walkthrough -->
+    <section class="slide" id="slide-5">
+      <div class="slide-tag">Live Demonstration</div>
+      <h1 class="slide-title">Proven Under Failure Conditions</h1>
+      <h2 class="slide-subtitle">The 5-stage live proof demonstrated to evaluation panels.</h2>
+
+      <div class="grid-3">
+        <div class="card">
+          <span class="badge badge-cyan">Stage 1 & 2</span>
+          <div class="card-title" style="margin-top:8px;">Boot & Baseline</div>
+          <div class="card-text">Node powers up; broadcast appears in 1.4s; dashboard links to 192.168.4.1; status glows <strong style="color:var(--accent-emerald);">HEALTHY</strong> with live 18ms pings.</div>
+        </div>
+        <div class="card">
+          <span class="badge badge-crimson">Stage 3</span>
+          <div class="card-title" style="margin-top:8px;">Severing the WAN</div>
+          <div class="card-text">Internet cable unplugged; Gateway responds in 2ms while DNS times out; node classifies failure as <strong style="color:var(--accent-crimson);">OUTAGE</strong> in 6s.</div>
+        </div>
+        <div class="card">
+          <span class="badge badge-amber">Stage 4 & 5</span>
+          <div class="card-title" style="margin-top:8px;">Power-Cut & Export</div>
+          <div class="card-text">USB power yanked; device reboots; NVS flash log intact; WAN restored; 5-probe recovery clears incident; CSV report exported.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: Impact & Roadmap -->
+    <section class="slide" id="slide-6">
+      <div class="slide-tag">Deployment & Roadmap</div>
+      <h1 class="slide-title">Production Impact & Future Horizons</h1>
+      <h2 class="slide-subtitle">Transforming edge reliability from reactive guesswork to mathematically verifiable SLA enforcement.</h2>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="highlight-stat stat-emerald">&lt;$5</div>
+          <div class="card-title">Production BOM</div>
+          <div class="card-text">Deployable in every retail store, server closet, and smart home at 1/10th the cost of an SBC.</div>
+        </div>
+        <div class="card">
+          <div class="highlight-stat stat-cyan">100%</div>
+          <div class="card-title">SLA Accountability</div>
+          <div class="card-text">Timestamped, tamper-evident outage logs provide indisputable evidence for ISP SLA penalty claims.</div>
+        </div>
+        <div class="card">
+          <div class="highlight-stat stat-amber">0.8W</div>
+          <div class="card-title">Ultra-Low Power</div>
+          <div class="card-text">Runs for days on a compact USB power bank or auxiliary UPS during facility power blackouts.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 10px;">
+        <div class="card-title">🚀 Upcoming Engineering Roadmap</div>
+        <div class="card-text" style="display:flex; justify-content:space-between; gap:20px;">
+          <div>• <strong>Dual-Band Wi-Fi 6:</strong> ESP32-C5 port for enterprise 5 GHz / 6 GHz RF bands.</div>
+          <div>• <strong>Out-of-Band Cellular / LoRa:</strong> Emergency 20-byte SMS/LoRa alert to NOC during total power outages.</div>
+          <div>• <strong>Power-over-Ethernet (PoE):</strong> Rackmount carrier board for server room deployment.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <footer>
+    <div class="key-hints">
+      <span>Navigate: <span class="key">←</span> <span class="key">→</span> or <span class="key">Space</span></span>
+      <span>Home: <span class="key">Home</span></span>
+      <span>End: <span class="key">End</span></span>
+    </div>
+
+    <div class="nav-btn-group">
+      <button class="nav-btn" id="prevBtn" title="Previous Slide">‹</button>
+      <button class="nav-btn" id="nextBtn" title="Next Slide">›</button>
+    </div>
+  </footer>
+
+  <!-- Self-Contained Presentation Script -->
+  <script>
+    (function() {
+      const slides = document.querySelectorAll('.slide');
+      const totalSlides = slides.length;
+      let currentSlide = 0;
+
+      const slideIndicator = document.getElementById('slideIndicator');
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+
+      function updateSlide(index) {
+        if (index < 0) index = 0;
+        if (index >= totalSlides) index = totalSlides - 1;
+        
+        currentSlide = index;
+
+        slides.forEach((slide, idx) => {
+          if (idx === currentSlide) {
+            slide.classList.add('active');
+          } else {
+            slide.classList.remove('active');
+          }
+        });
+
+        slideIndicator.textContent = `SLIDE ${currentSlide + 1} / ${totalSlides}`;
+        prevBtn.style.opacity = currentSlide === 0 ? '0.3' : '1';
+        nextBtn.style.opacity = currentSlide === totalSlides - 1 ? '0.3' : '1';
+      }
+
+      function nextSlide() {
+        if (currentSlide < totalSlides - 1) {
+          updateSlide(currentSlide + 1);
+        }
+      }
+
+      function prevSlide() {
+        if (currentSlide > 0) {
+          updateSlide(currentSlide - 1);
+        }
+      }
+
+      // Keyboard Controls
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+          e.preventDefault();
+          nextSlide();
+        } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          e.preventDefault();
+          prevSlide();
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          updateSlide(0);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          updateSlide(totalSlides - 1);
+        }
+      });
+
+      // Button Controls
+      nextBtn.addEventListener('click', nextSlide);
+      prevBtn.addEventListener('click', prevSlide);
+
+      // Touch Swipe Controls
+      let touchStartX = 0;
+      window.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+      }, { passive: true });
+
+      window.addEventListener('touchend', (e) => {
+        const diffX = e.changedTouches[0].screenX - touchStartX;
+        if (Math.abs(diffX) > 50) {
+          if (diffX < 0) nextSlide();
+          else prevSlide();
+        }
+      }, { passive: true });
+
+      updateSlide(0);
+    })();
+  </script>
+</body>
+</html>

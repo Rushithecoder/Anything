@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "wifi_manager.c"
+        "network_monitor.c"
+        "incident_engine.c"
+        "event_store.c"
+        "telemetry.c"
+        "web_server.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        esp_wifi
+        esp_netif
+        esp_event
+        nvs_flash
+        esp_http_server
+        json
+        lwip
+        esp_timer
+        esp_system
+        esp_hw_support
+)
